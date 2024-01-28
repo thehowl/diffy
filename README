@@ -1,0 +1,9 @@
+diff.am is a dead stupid diff tool.
+
+- curl -F red=@1 green=@2 https://diff.am works for 99% of people
+- A diff.am sh script is provided; the files are diffed locally and the diff is uploaded, AES-encrypted. The shareable URL is something like https://diff.am/~wxdyio#mario89
+- File IDs are based on their hashes (content-addressable; ie. free deduplication). We'll encode 50 bits using base32. If a birthday happens, publish with the full hash encoded.
+- Limited for public usage: resulting diffs max ~32kb, max 5 diffs per day and 20 diffs per month per IP. Temporary diffs (retention <=1yr, the max) have separate limits; 20 per day and 200 per month. If your diff is deleted for the retention policy, your counter is decreased.
+- Storage: object storage, local cache in Bolt + Cloudflare cache.
+- Sustainability: unclear for now, likely that this thing will have 100 regular users who are happy with the limits. I'll tell users who want to lift limits to self-host or send me an email and we can arrange something.
+- Retention policy: 5 hits in the first month, then minimum 10 hits per year. Can obviously just be crawlers.

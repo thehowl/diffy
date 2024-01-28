@@ -1,0 +1,5 @@
+static/dmp.wasm
+data/*
+!data/.gitkeep
+*.vim
+/diff.am
