@@ -1,4 +1,5 @@
 static/dmp.wasm
+static/dmp.js*
 data/*
 !data/.gitkeep
 *.vim

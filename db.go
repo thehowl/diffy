@@ -74,7 +74,6 @@ func (d *DB) PutFile(name string, f File) error {
 		return err
 	}
 
-	fmt.Println("name", name)
 	return d.db.Batch(func(tx *bbolt.Tx) error {
 		return tx.Bucket(d.FilesBucket).Put([]byte(name), encoded)
 	})

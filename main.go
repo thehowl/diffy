@@ -9,6 +9,7 @@ import (
 	"encoding/hex"
 	"flag"
 	"fmt"
+	"html/template"
 	"io"
 	"log"
 	"mime/multipart"
@@ -17,6 +18,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/hexops/gotextdiff"
+	"github.com/hexops/gotextdiff/myers"
 	minio "github.com/minio/minio-go/v7"
 	"github.com/minio/minio-go/v7/pkg/credentials"
 	"github.com/thehowl/cford32"
@@ -142,6 +145,8 @@ func (ws *webServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	switch {
 	case method == "GET" && path == "/":
 		w.Write(ws.usageString())
+	case method == "GET" && strings.HasPrefix(path, "/static/"):
+		http.FileServer(http.Dir(".")).ServeHTTP(w, r)
 	case method == "POST" && path == "/":
 		handleErr(ws.upload(w, r))
 	case method == "GET" && len(path) == 9:
@@ -273,6 +278,7 @@ func (ws *webServer) serveFile(w http.ResponseWriter, r *http.Request) error {
 	// parse filename
 	id := r.URL.Path[1:]
 
+	// determine whether file exists
 	f, err := ws.db.GetFile(id)
 	if err != nil {
 		return err
@@ -283,21 +289,69 @@ func (ws *webServer) serveFile(w http.ResponseWriter, r *http.Request) error {
 		return nil
 	}
 
+	// get from storage
 	data, err := ws.storage.Get(r.Context(), id)
 	if err != nil {
 		return err
 	}
 
-	rd, err := gzip.NewReader(bytes.NewReader(data))
+	// decode
+	files, err := tgzReadFiles(data)
 	if err != nil {
 		return err
 	}
-	dmp := hex.Dumper(w)
-	if _, err := io.Copy(dmp, rd); err != nil {
+	if len(files) != 2 {
+		return fmt.Errorf("expected 2 files got %d", len(files))
+	}
+
+	edits := myers.ComputeEdits("x", files[0].Content, files[1].Content)
+	unified := gotextdiff.ToUnified(files[0].Name, files[1].Name, files[0].Content, edits)
+
+	tplRaw, err := os.ReadFile("static/templates/file.tmpl")
+	if err != nil {
 		return err
 	}
-	if err := rd.Close(); err != nil {
-		return err
+
+	type tplData struct {
+		ID   string
+		Data string
 	}
-	return nil
+	tpl := template.Must(template.New("").Parse(string(tplRaw)))
+	return tpl.Execute(w, tplData{ID: id, Data: fmt.Sprint(unified)})
+}
+
+type diffFile struct {
+	Name    string
+	Content string
+}
+
+func tgzReadFiles(data []byte) ([]diffFile, error) {
+	gzrd, err := gzip.NewReader(bytes.NewReader(data))
+	if err != nil {
+		return nil, err
+	}
+
+	var files []diffFile
+	rd := tar.NewReader(gzrd)
+	for {
+		f, err := rd.Next()
+		if err != nil {
+			if err == io.EOF {
+				break
+			}
+			return nil, err
+		}
+
+		data, err := io.ReadAll(rd)
+		if err != nil {
+			return nil, err
+		}
+		files = append(files, diffFile{Name: f.Name, Content: string(data)})
+	}
+
+	if err := gzrd.Close(); err != nil {
+		return nil, err
+	}
+
+	return files, nil
 }
