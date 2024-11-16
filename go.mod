@@ -1,4 +1,4 @@
-module github.com/thehowl/diff.am
+module github.com/thehowl/diffy
 
 go 1.21.1
 

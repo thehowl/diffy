@@ -28,6 +28,8 @@ import (
 	"go.uber.org/multierr"
 )
 
+// DIFFP: https://cs.opensource.google/go/x/tools/+/master:internal/diffp/diff.go;l=21?q=diff&sq=&ss=go%2Fx%2Ftools
+
 type optsType struct {
 	listenAddr     string
 	publicURL      string
@@ -310,13 +312,43 @@ func (ws *webServer) serveFile(w http.ResponseWriter, r *http.Request) error {
 
 	type tplData struct {
 		ID   string
-		Data string
+		Diff gotextdiff.Unified
 	}
-	return fileTemplate.Execute(w, tplData{ID: id, Data: fmt.Sprint(unified)})
+	return fileTemplate.Execute(w, tplData{ID: id, Diff: unified})
 }
 
 var (
-	fileTemplate = template.Must(template.New("").Parse(string(fileTemplateRaw)))
+	funcMap = map[string]any{
+		"hunk_header": func(hunk *gotextdiff.Hunk) string {
+			fromCount, toCount := 0, 0
+			for _, l := range hunk.Lines {
+				switch l.Kind {
+				case gotextdiff.Delete:
+					fromCount++
+				case gotextdiff.Insert:
+					toCount++
+				default:
+					fromCount++
+					toCount++
+				}
+			}
+			var bld strings.Builder
+			bld.WriteString("@@")
+			if fromCount > 1 {
+				fmt.Fprintf(&bld, " -%d,%d", hunk.FromLine, fromCount)
+			} else {
+				fmt.Fprintf(&bld, " -%d", hunk.FromLine)
+			}
+			if toCount > 1 {
+				fmt.Fprintf(&bld, " +%d,%d", hunk.ToLine, toCount)
+			} else {
+				fmt.Fprintf(&bld, " +%d", hunk.ToLine)
+			}
+			bld.WriteString(" @@")
+			return bld.String()
+		},
+	}
+	fileTemplate = template.Must(template.New("").Funcs(funcMap).Parse(string(fileTemplateRaw)))
 	//go:embed static/templates/file.tmpl
 	fileTemplateRaw string
 )

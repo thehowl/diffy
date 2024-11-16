@@ -1,5 +1,5 @@
 // Package dmpweb provides diff/match/patch functions for the web interface of
-// diff.am, and some general utility functions we'll be using.
+// diffy, and some general utility functions we'll be using.
 //
 // This package is compiled using gopherjs. See the makefile.
 package main

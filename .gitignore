@@ -3,4 +3,4 @@ static/dmp.js*
 data/*
 !data/.gitkeep
 *.vim
-/diff.am
+/diffy

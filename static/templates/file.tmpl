@@ -1,14 +1,47 @@
 <!doctype html>
 <html>
 <head>
-	<title>{{ .ID }} - diff.am</title>
+	<title>{{ .ID }} - diffy</title>
 	<style>
 		body {
 			font-family: monospace;
 		}
+		.diff {
+		    color: #444;
+		}
+		.line-delete {
+		    color: #a00000;
+		}
+		.line-insert {
+		    color: #00A020;
+		}
+		.line-equal {
+		    color: #000;
+		}
 	</style>
 </head>
 <body>
-<pre>{{ .Data }}</pre>
+<div><i>
+    [unified]
+    [split]
+    [dark]
+</i></div>
+
+<pre class="diff">--- <a href="/TODO">{{ .Diff.From }}</a>
++++ <a href="/TODO">{{ .Diff.To }}</a>
+{{ range .Diff.Hunks -}}
+{{- hunk_header . }}
+{{ range .Lines -}}
+<div class="line-{{ .Kind.String }}">
+    {{- if eq .Kind.String "delete" -}}
+        -
+    {{- else if eq .Kind.String "insert" -}}
+        +
+    {{- else }} {{ end -}}
+{{- .Content -}}
+</div>
+{{- end -}}
+{{ end -}}
+</pre>
 </body>
 </html>
