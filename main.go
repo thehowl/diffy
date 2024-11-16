@@ -6,6 +6,7 @@ import (
 	"compress/gzip"
 	"context"
 	"crypto/sha256"
+	_ "embed"
 	"encoding/hex"
 	"flag"
 	"fmt"
@@ -123,7 +124,7 @@ func (ws *webServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			sav.WriteHeader(200)
 		}
 		dt := time.Since(start)
-		log.Printf("%3d %-20s [%.3fms]", sav.code, method+" "+path, float64(dt)/1e6)
+		log.Printf("%3d %-25s [%3.3fms]", sav.code, method+" "+path, float64(dt)/1e6)
 	}()
 	defer func() {
 		err := recover()
@@ -307,18 +308,18 @@ func (ws *webServer) serveFile(w http.ResponseWriter, r *http.Request) error {
 	edits := myers.ComputeEdits("x", files[0].Content, files[1].Content)
 	unified := gotextdiff.ToUnified(files[0].Name, files[1].Name, files[0].Content, edits)
 
-	tplRaw, err := os.ReadFile("static/templates/file.tmpl")
-	if err != nil {
-		return err
-	}
-
 	type tplData struct {
 		ID   string
 		Data string
 	}
-	tpl := template.Must(template.New("").Parse(string(tplRaw)))
-	return tpl.Execute(w, tplData{ID: id, Data: fmt.Sprint(unified)})
+	return fileTemplate.Execute(w, tplData{ID: id, Data: fmt.Sprint(unified)})
 }
+
+var (
+	fileTemplate = template.Must(template.New("").Parse(string(fileTemplateRaw)))
+	//go:embed static/templates/file.tmpl
+	fileTemplateRaw string
+)
 
 type diffFile struct {
 	Name    string

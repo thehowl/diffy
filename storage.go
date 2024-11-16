@@ -2,7 +2,6 @@ package main
 
 import (
 	"bytes"
-	"compress/gzip"
 	"context"
 	"errors"
 	"fmt"
@@ -127,38 +126,6 @@ func (m *dbStorage) List(ctx context.Context, cb func(id string, b []byte) error
 			return cb(string(k), v)
 		})
 	})
-}
-
-// gzipStorage wraps a storage; it gzip-compresses all Put contents and
-// gzip-decompresses all Get contents.
-// TODO: maybe delete?
-type gzipStorage struct {
-	Storage
-}
-
-func (g gzipStorage) Get(ctx context.Context, id string) ([]byte, error) {
-	d, err := g.Storage.Get(ctx, id)
-	if err != nil {
-		return nil, err
-	}
-	r, err := gzip.NewReader(bytes.NewReader(d))
-	if err != nil {
-		return nil, err
-	}
-	defer r.Close()
-	return io.ReadAll(r)
-}
-
-func (g gzipStorage) Put(ctx context.Context, id string, data []byte) error {
-	var cpr bytes.Buffer
-	w := gzip.NewWriter(&cpr)
-	if _, err := w.Write(data); err != nil {
-		return err
-	}
-	if err := w.Close(); err != nil {
-		return nil
-	}
-	return g.Storage.Put(ctx, id, cpr.Bytes())
 }
 
 type cachedObject struct {
@@ -298,13 +265,10 @@ func (c *cachedStorage) doClean() {
 func (c *cachedStorage) cleaner() {
 	for range c.cleaning {
 		sz := c.cacheSize()
-		if sz < c.maxSize {
-			time.Sleep(cleanSleep)
-			continue
+		if sz >= c.maxSize {
+			// limit reached.
+			c.doClean()
 		}
-
-		// limit reached.
-		c.doClean()
 
 		time.Sleep(cleanSleep)
 	}
