@@ -12,6 +12,7 @@ import (
 	"log"
 	"mime/multipart"
 	"net/http"
+	"regexp"
 	"time"
 
 	"github.com/go-chi/chi/v5"
@@ -48,7 +49,21 @@ func (s *Server) Router() chi.Router {
 	return rt
 }
 
+const (
+	ctHeader = "Content-Type"
+	ctPlain  = "text/plain; charset=utf-8"
+)
+
+var (
+	reBrowser = regexp.MustCompile("(?i)(?:chrome|firefox|safari|gecko)/")
+)
+
 func (s *Server) index(w http.ResponseWriter, r *http.Request) {
+	if ua := r.UserAgent(); !reBrowser.MatchString(ua) {
+		w.Header().Set(ctHeader, ctPlain)
+		w.Write(s.usageString())
+		return
+	}
 	templates.Templates.ExecuteTemplate(
 		w,
 		"index.tmpl",
@@ -122,7 +137,7 @@ func (s *Server) upload(w http.ResponseWriter, r *http.Request) error {
 	id := cford32.EncodeToStringLower(shaHash[:5])
 	link := s.PublicURL + "/" + id
 	output := func() {
-		w.Header().Set("Content-Type", "text/plain; charset=utf-8")
+		w.Header().Set(ctHeader, ctPlain)
 		w.Header().Set("Location", link)
 		w.WriteHeader(http.StatusFound)
 		w.Write([]byte(link + "\n"))
@@ -162,7 +177,7 @@ func (s *Server) upload(w http.ResponseWriter, r *http.Request) error {
 }
 
 func (s *Server) usageString() []byte {
-	return []byte("usage: curl -F red=@before.txt -F green=@after.txt " + s.PublicURL)
+	return []byte("usage: curl -F red=@before.txt -F green=@after.txt " + s.PublicURL + "\n")
 }
 
 func tarWriteMultipart(tw *tar.Writer, fh *multipart.FileHeader) error {
