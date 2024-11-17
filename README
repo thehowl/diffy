@@ -7,3 +7,5 @@ diffy is a dead stupid diff tool.
 - Storage: object storage, local cache in Bolt + Cloudflare cache.
 - Sustainability: unclear for now, likely that this thing will have 100 regular users who are happy with the limits. I'll tell users who want to lift limits to self-host or send me an email and we can arrange something.
 - Retention policy: 5 hits in the first month, then minimum 10 hits per year. Can obviously just be crawlers.
+
+// DIFFP: https://cs.opensource.google/go/x/tools/+/master:internal/diffp/diff.go;l=21?q=diff&sq=&ss=go%2Fx%2Ftools

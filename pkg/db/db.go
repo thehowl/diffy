@@ -1,4 +1,4 @@
-package main
+package db
 
 import (
 	"encoding/json"
@@ -12,10 +12,10 @@ import (
 // DB is a thin wrapper around a Bolt database. It centralizes functions
 // which interact with the database.
 type DB struct {
+	DB          *bbolt.DB
 	FilesBucket []byte
 
 	err  error
-	db   *bbolt.DB
 	once sync.Once
 }
 
@@ -29,7 +29,7 @@ func (d *DB) _init() {
 		d.FilesBucket = []byte("files")
 	}
 
-	err := d.db.Update(func(tx *bbolt.Tx) error {
+	err := d.DB.Update(func(tx *bbolt.Tx) error {
 		_, err := tx.CreateBucketIfNotExists(d.FilesBucket)
 		return err
 	})
@@ -57,7 +57,7 @@ func (d *DB) HasFile(name string) (bool, error) {
 	}
 
 	var has bool
-	err := d.db.View(func(tx *bbolt.Tx) error {
+	err := d.DB.View(func(tx *bbolt.Tx) error {
 		has = tx.Bucket(d.FilesBucket).Get([]byte(name)) != nil
 		return nil
 	})
@@ -74,7 +74,7 @@ func (d *DB) PutFile(name string, f File) error {
 		return err
 	}
 
-	return d.db.Batch(func(tx *bbolt.Tx) error {
+	return d.DB.Batch(func(tx *bbolt.Tx) error {
 		return tx.Bucket(d.FilesBucket).Put([]byte(name), encoded)
 	})
 }
@@ -85,7 +85,7 @@ func (d *DB) GetFile(name string) (File, error) {
 	}
 
 	var buf []byte
-	err := d.db.View(func(tx *bbolt.Tx) error {
+	err := d.DB.View(func(tx *bbolt.Tx) error {
 		data := tx.Bucket(d.FilesBucket).Get([]byte(name))
 		buf = append(buf, data...)
 		return nil

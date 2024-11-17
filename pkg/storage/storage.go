@@ -1,4 +1,4 @@
-package main
+package storage
 
 import (
 	"bytes"
@@ -73,11 +73,11 @@ type dbStorage struct {
 
 var _ ListStorage = (*dbStorage)(nil)
 
-// newDBStorage creates a new DB storage, additionally ensuring that the given
+// NewDBStorage creates a new DB storage, additionally ensuring that the given
 // bucketName exists in the db.
 //
 // It panics if db.Update returns an error.
-func newDBStorage(db *bbolt.DB, bucketName []byte) Storage {
+func NewDBStorage(db *bbolt.DB, bucketName []byte) Storage {
 	err := db.Update(func(tx *bbolt.Tx) error {
 		_, err := tx.CreateBucketIfNotExists(bucketName)
 		return err
@@ -159,7 +159,7 @@ type cachedStorage struct {
 	cleaning chan struct{}
 }
 
-func newCachedStorage(cache ListStorage, permanent Storage, maxSize uint64) (*cachedStorage, error) {
+func NewCachedStorage(cache ListStorage, permanent Storage, maxSize uint64) (*cachedStorage, error) {
 	objects := make(map[string]*cachedObject)
 	ready := make(chan struct{})
 	close(ready)
