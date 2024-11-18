@@ -22,13 +22,15 @@
 </head>
 <body>
 <div><i>
-    [unified]
-    [split]
-    [dark]
+    [unified | split]
+    [whitespace: consider | ignore]
+    [algo: myers | diffp ]
+    [light | dark]
+    [colorblind: not | 1 | 2 ]
 </i></div>
 
-<pre class="diff">--- <a href="/TODO">{{ .Diff.From }}</a>
-+++ <a href="/TODO">{{ .Diff.To }}</a>
+<pre class="diff">--- <a href="/{{ .ID }}/red">{{ .Diff.From }}</a>
++++ <a href="/{{ .ID }}/green">{{ .Diff.To }}</a>
 {{ range .Diff.Hunks -}}
 {{- hunk_header . }}
 {{ range .Lines -}}

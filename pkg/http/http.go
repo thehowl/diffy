@@ -13,6 +13,7 @@ import (
 	"mime/multipart"
 	"net/http"
 	"regexp"
+	"strconv"
 	"time"
 
 	"github.com/go-chi/chi/v5"
@@ -43,9 +44,9 @@ func (s *Server) Router() chi.Router {
 	rt.Post("/", s.e(s.upload))
 	fs := http.FileServer(http.Dir("."))
 	rt.Get("/static/*", fs.ServeHTTP)
-	rt.Get("/{id}", s.e(s.serveFile))
-	rt.Get("/{id}/red", nil)
-	rt.Get("/{id}/green", nil)
+	rt.Get("/{id}", s.e(s.serveDiff))
+	rt.Get("/{id}/red", s.serveFile(0))
+	rt.Get("/{id}/green", s.serveFile(1))
 	return rt
 }
 
@@ -58,8 +59,13 @@ var (
 	reBrowser = regexp.MustCompile("(?i)(?:chrome|firefox|safari|gecko)/")
 )
 
+func isBrowser(r *http.Request) bool {
+	ua := r.UserAgent()
+	return reBrowser.MatchString(ua)
+}
+
 func (s *Server) index(w http.ResponseWriter, r *http.Request) {
-	if ua := r.UserAgent(); !reBrowser.MatchString(ua) {
+	if !isBrowser(r) {
 		w.Header().Set(ctHeader, ctPlain)
 		w.Write(s.usageString())
 		return
@@ -201,9 +207,9 @@ func tarWriteMultipart(tw *tar.Writer, fh *multipart.FileHeader) error {
 	return nil
 }
 
-func (s *Server) serveFile(w http.ResponseWriter, r *http.Request) error {
+func (s *Server) serveDiff(w http.ResponseWriter, r *http.Request) error {
 	// parse filename
-	id := r.URL.Path[1:]
+	id := chi.URLParam(r, "id")
 
 	// determine whether file exists
 	f, err := s.DB.GetFile(id)
@@ -233,6 +239,12 @@ func (s *Server) serveFile(w http.ResponseWriter, r *http.Request) error {
 
 	edits := myers.ComputeEdits("x", files[0].Content, files[1].Content)
 	unified := gotextdiff.ToUnified(files[0].Name, files[1].Name, files[0].Content, edits)
+
+	if !isBrowser(r) {
+		w.Header().Set(ctHeader, ctPlain)
+		fmt.Fprint(w, unified)
+		return nil
+	}
 
 	type tplData struct {
 		ID   string
@@ -275,4 +287,47 @@ func tgzReadFiles(data []byte) ([]diffFile, error) {
 	}
 
 	return files, nil
+}
+
+func (s *Server) serveFile(n int) func(w http.ResponseWriter, r *http.Request) {
+	return s.e(func(w http.ResponseWriter, r *http.Request) error {
+		return s._serveFile(w, r, n)
+	})
+}
+
+func (s *Server) _serveFile(w http.ResponseWriter, r *http.Request, idx int) error {
+	// parse filename
+	id := chi.URLParam(r, "id")
+
+	// determine whether file exists
+	f, err := s.DB.GetFile(id)
+	if err != nil {
+		return err
+	}
+	if f.IsZero() {
+		w.WriteHeader(404)
+		w.Write([]byte("not found"))
+		return nil
+	}
+
+	// get from storage
+	data, err := s.Storage.Get(r.Context(), id)
+	if err != nil {
+		return err
+	}
+
+	// decode
+	files, err := tgzReadFiles(data)
+	if err != nil {
+		return err
+	}
+	if len(files) != 2 {
+		return fmt.Errorf("expected 2 files got %d", len(files))
+	}
+
+	fn := files[idx]
+	w.Header().Set(ctHeader, ctPlain)
+	w.Header().Set("Content-Disposition", "inline; filename="+strconv.Quote(fn.Name))
+	w.Write([]byte(fn.Content))
+	return nil
 }
