@@ -1,8 +1,0 @@
-diffy is a dead stupid diff tool.
-
-- curl -F red=@1 green=@2 https://diffy works for 99% of people
-- also git diff | curl https://diffy
-- Storage: object storage, local cache in Bolt + Cloudflare cache.
-- Retention policy: 5 hits in the first month, then minimum 10 hits per year. Can obviously just be crawlers.
-
-// DIFFP: https://cs.opensource.google/go/x/tools/+/master:internal/diffp/diff.go;l=21?q=diff&sq=&ss=go%2Fx%2Ftools
