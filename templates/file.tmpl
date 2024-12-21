@@ -7,27 +7,29 @@
 			font-family: monospace;
 		}
 		.diff {
-		    color: #444;
+			color: #444;
 		}
 		.line-delete {
-		    color: #a00000;
+			color: #a00000;
 		}
 		.line-insert {
-		    color: #00A020;
+			color: #00A020;
 		}
 		.line-equal {
-		    color: #000;
+			color: #000;
 		}
 	</style>
 </head>
 <body>
 <div><i>
-    [unified | split]
-    [whitespace: consider | ignore]
-    [algo: myers | diffp ]
-    [light | dark]
-    [colorblind: not | 1 | 2 ]
+	[unified | split]
+	[whitespace: consider | ignore]
+	[algo: myers | diffp]
+	[light | dark]
 </i></div>
+
+<div class="diff">
+	<
 
 <pre class="diff">--- <a href="/{{ .ID }}/red">{{ .Diff.From }}</a>
 +++ <a href="/{{ .ID }}/green">{{ .Diff.To }}</a>
@@ -35,11 +37,11 @@
 {{- hunk_header . }}
 {{ range .Lines -}}
 <div class="line-{{ .Kind.String }}">
-    {{- if eq .Kind.String "delete" -}}
-        -
-    {{- else if eq .Kind.String "insert" -}}
-        +
-    {{- else }} {{ end -}}
+	{{- if eq .Kind.String "delete" -}}
+		-
+	{{- else if eq .Kind.String "insert" -}}
+		+
+	{{- else }} {{ end -}}
 {{- .Content -}}
 </div>
 {{- end -}}
