@@ -7,13 +7,13 @@ RUN adduser -H -D -u 1000 diffy
 # Add data directory
 RUN mkdir -p /data && chown 1000:1000 /data
 
-COPY main.go ./main.go
-COPY pkg ./pkg
 COPY go.mod go.sum ./
 
 RUN go mod download
 RUN go mod verify
 
+COPY main.go ./main.go
+COPY pkg ./pkg
 COPY templates ./templates
 
 RUN GOOS=linux GOARCH=amd64 go build -ldflags="-w -s" -o /go/bin/diffy main.go
