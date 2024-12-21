@@ -34,7 +34,7 @@ func (d *DB) _init() {
 		return err
 	})
 	if err != nil {
-		d.err = fmt.Errorf("initialization error: %w")
+		d.err = fmt.Errorf("initialization error: %w", err)
 	}
 }
 

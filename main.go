@@ -6,6 +6,7 @@ import (
 	"fmt"
 	gohttp "net/http"
 	"os"
+	"strconv"
 	"strings"
 
 	minio "github.com/minio/minio-go/v7"
@@ -24,6 +25,7 @@ type optsType struct {
 	s3AccessKey    string
 	s3AccessSecret string
 	s3Bucket       string
+	s3SecureSSL    bool
 }
 
 func defaultEnv(s, def string) string {
@@ -39,6 +41,23 @@ func stringVar(p *string, fg, defaultValue, usage string) {
 	flag.StringVar(p, fg, defaultEnv(ev, defaultValue), usage+". env var: "+ev)
 }
 
+func boolVar(p *bool, fg string, valBool bool, usage string) {
+	ev := strings.ReplaceAll(strings.ToUpper(fg), "-", "_")
+	valStr := defaultEnv(ev, strconv.FormatBool(valBool))
+	valBool, err := strconv.ParseBool(valStr)
+	if err != nil {
+		panic(
+			fmt.Errorf(
+				"error parsing value %q for flag %q: %w, bool expected",
+				valStr,
+				fg,
+				err,
+			),
+		)
+	}
+	flag.BoolVar(p, fg, valBool, usage+". env var: "+ev)
+}
+
 func main() {
 	var opts optsType
 	stringVar(&opts.listenAddr, "listen-addr", ":18844", "listen address for the web server")
@@ -48,7 +67,8 @@ func main() {
 	stringVar(&opts.s3Endpoint, "s3-endpoint", "", "s3 endpoint")
 	stringVar(&opts.s3AccessKey, "s3-access-key", "", "s3 access key")
 	stringVar(&opts.s3AccessSecret, "s3-access-secret", "", "s3 access secret")
-	stringVar(&opts.s3Bucket, "s3-bucket", "", "s3 bucket")
+	boolVar(&opts.s3SecureSSL, "s3-secure-ssl", true, "s3 access secret")
+	stringVar(&opts.s3Bucket, "s3-bucket", "diffy", "s3 bucket")
 	flag.Parse()
 
 	// Set up database.
@@ -63,17 +83,18 @@ func main() {
 	}
 
 	if opts.s3Endpoint == "" {
+		fmt.Println("using db storage")
 		ht.Storage = storage.NewDBStorage(kvDB, []byte("storage"))
 	} else {
+		fmt.Printf("using s3 storage [endpoint: %s, bucket: %s]\n", opts.s3Endpoint, opts.s3Bucket)
 		minioClient, err := minio.New(opts.s3Endpoint, &minio.Options{
 			Creds:  credentials.NewStaticV4(opts.s3AccessKey, opts.s3AccessSecret, ""),
-			Secure: true,
+			Secure: opts.s3SecureSSL,
 		})
 		if err != nil {
-			panic(fmt.Errorf("minio init error: %w"))
+			panic(fmt.Errorf("minio init error: %w", err))
 		}
-		_ = minioClient
-		panic("TODO")
+		ht.Storage = storage.NewMinioStorage(minioClient, opts.s3Bucket)
 	}
 
 	fmt.Println("listening on", opts.listenAddr)
