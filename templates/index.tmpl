@@ -5,7 +5,7 @@
 	<style>
 		body {
 			font-family: monospace;
-			font-size: 14px;
+			font-size: 13px;
 		}
 		.content {
 			max-width: 960px;
@@ -20,6 +20,19 @@
 		.subtitle {
 			text-align: center;
 			margin-bottom: 2.5em;
+		}
+		.submit-form {
+			display: flex;
+		}
+		.submit-form > div {
+			width: 100%;
+		}
+		.submit-form input, .submit-form textarea {
+			display: block;
+			width: 100%;
+			font-family: monospace;
+			box-sizing: border-box;
+			font-size: 1em;
 		}
 	</style>
 </head>
@@ -45,6 +58,21 @@
 			looking for something more "casual", take a look at
 			<a href="https://www.diffchecker.com/text-compare/">diffchecker.</a>
 		</p>
+		<form action="" method="post" enctype="multipart/form-data">
+			<div class="submit-form">
+				<div>
+					<input type="text" name="red_name" placeholder="red (old) file name" tabindex="0">
+					<textarea name="red" rows="50" required placeholder="red file contents" tabindex="1"></textarea>
+				</div>
+				<div>
+					<input type="text" name="green_name" placeholder="green (new) file name" tabindex="2">
+					<textarea name="green" rows="50" required placeholder="green file contents" tabindex="3"></textarea>
+				</div>
+			</div>
+			<div style="text-align: center; margin-top: 10px">
+				<input type="submit" value="submit" tabindex="4">
+			</div>
+		</form>
 	</div>
 </body>
 </html>

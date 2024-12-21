@@ -7,6 +7,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"io"
 	"log"
@@ -14,6 +15,7 @@ import (
 	"net/http"
 	"regexp"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/go-chi/chi/v5"
@@ -81,6 +83,11 @@ func (s *Server) e(fn func(w http.ResponseWriter, r *http.Request) error) http.H
 	return func(w http.ResponseWriter, r *http.Request) {
 		err := fn(w, r)
 		if err != nil {
+			if errors.Is(err, errUsage) {
+				w.WriteHeader(400)
+				w.Write(s.usageString())
+				return
+			}
 			log.Printf("request error: %v", err)
 			// TODO: support error reporting (glitchtip)
 			w.WriteHeader(500)
@@ -108,37 +115,19 @@ func (s *Server) upload(w http.ResponseWriter, r *http.Request) error {
 	}
 	defer r.MultipartForm.RemoveAll()
 
-	// Get red/green files, and ensure they've been POST'ed correctly.
-	redS, greenS := r.MultipartForm.File["red"], r.MultipartForm.File["green"]
-	if len(redS) != 1 || len(greenS) != 1 {
-		w.WriteHeader(400)
-		w.Write(s.usageString())
-		return nil
+	var arc []byte
+	if len(r.MultipartForm.File) > 0 {
+		arc, err = archiveFromFormFiles(r.MultipartForm)
+	} else {
+		arc, err = archiveFromFormValues(r.MultipartForm)
 	}
-	red, green := redS[0], greenS[0]
-
-	// Create tar.gz writter + buffer.
-	var buf bytes.Buffer
-	gz := gzip.NewWriter(&buf)
-	tw := tar.NewWriter(gz)
-
-	// Encode multipart files.
-	for _, f := range [...]*multipart.FileHeader{red, green} {
-		if err := tarWriteMultipart(tw, f); err != nil {
-			return err
-		}
-	}
-
-	if err := tw.Close(); err != nil {
-		return err
-	}
-	if err := gz.Close(); err != nil {
+	if err != nil {
 		return err
 	}
 
 	// Buffer created and filled; let's store it.
 	// Determine name of object.
-	shaHash := sha256.Sum256(buf.Bytes())
+	shaHash := sha256.Sum256(arc)
 	// Use first 5 bytes (40 bits) to generate human readable ID.
 	id := cford32.EncodeToStringLower(shaHash[:5])
 	link := s.PublicURL + "/" + id
@@ -160,7 +149,7 @@ func (s *Server) upload(w http.ResponseWriter, r *http.Request) error {
 	}
 
 	// not a reupload, save to permanent storage & db.
-	err = s.Storage.Put(r.Context(), id, buf.Bytes())
+	err = s.Storage.Put(r.Context(), id, arc)
 	if err != nil {
 		return err
 	}
@@ -182,26 +171,96 @@ func (s *Server) upload(w http.ResponseWriter, r *http.Request) error {
 	return nil
 }
 
+func archiveFromFormFiles(mf *multipart.Form) ([]byte, error) {
+	// Get red/green files, and ensure they've been POST'ed correctly.
+	redS, greenS := mf.File["red"], mf.File["green"]
+	if len(redS) != 1 || len(greenS) != 1 {
+		return nil, errUsage
+	}
+	red, green := redS[0], greenS[0]
+
+	// Create tar.gz writter + buffer.
+	var buf bytes.Buffer
+	gz := gzip.NewWriter(&buf)
+	tw := tar.NewWriter(gz)
+
+	// Encode multipart files.
+	for _, f := range [...]*multipart.FileHeader{red, green} {
+		r, err := f.Open()
+		if err != nil {
+			return nil, err
+		}
+		defer r.Close()
+		if err := tarWriteMultipart(tw, f.Filename, f.Size, r); err != nil {
+			return nil, err
+		}
+	}
+
+	if err := tw.Close(); err != nil {
+		return nil, err
+	}
+	if err := gz.Close(); err != nil {
+		return nil, err
+	}
+	return buf.Bytes(), nil
+}
+
+func archiveFromFormValues(mf *multipart.Form) ([]byte, error) {
+	withDefault := func(s []string, def string) string {
+		if len(s) == 0 || s[0] == "" {
+			return def
+		}
+		return s[0]
+	}
+	var (
+		redFile   = mf.Value["red"]
+		greenFile = mf.Value["green"]
+		redName   = withDefault(mf.Value["red_name"], "red")
+		greenName = withDefault(mf.Value["green_name"], "green")
+	)
+	if len(redFile) != 1 || len(greenFile) != 1 {
+		return nil, errUsage
+	}
+
+	// Create tar.gz writter + buffer.
+	var buf bytes.Buffer
+	gz := gzip.NewWriter(&buf)
+	tw := tar.NewWriter(gz)
+
+	// Encode multipart files.
+	if err := tarWriteMultipart(tw, redName, int64(len(redFile[0])), strings.NewReader(redFile[0])); err != nil {
+		return nil, err
+	}
+	if err := tarWriteMultipart(tw, greenName, int64(len(greenFile[0])), strings.NewReader(greenFile[0])); err != nil {
+		return nil, err
+	}
+
+	if err := tw.Close(); err != nil {
+		return nil, err
+	}
+	if err := gz.Close(); err != nil {
+		return nil, err
+	}
+	return buf.Bytes(), nil
+}
+
+var errUsage = errors.New("")
+
 func (s *Server) usageString() []byte {
 	return []byte("usage: curl -F red=@before.txt -F green=@after.txt " + s.PublicURL + "\n")
 }
 
-func tarWriteMultipart(tw *tar.Writer, fh *multipart.FileHeader) error {
+func tarWriteMultipart(tw *tar.Writer, name string, size int64, r io.Reader) error {
 	err := tw.WriteHeader(&tar.Header{
-		Name: fh.Filename,
-		Size: fh.Size,
+		Name: name,
+		Size: size,
 		Mode: 0o600,
 	})
 	if err != nil {
 		return err
 	}
 
-	f, err := fh.Open()
-	if err != nil {
-		return err
-	}
-	defer f.Close()
-	if _, err := io.Copy(tw, f); err != nil {
+	if _, err := io.Copy(tw, r); err != nil {
 		return err
 	}
 	return nil
