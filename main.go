@@ -72,12 +72,6 @@ func main() {
 	flag.Parse()
 
 	// Set up database.
-	if _, err := os.Stat(opts.dbFile); os.IsNotExist(err) {
-		_, err := os.Create(opts.dbFile)
-		if err != nil {
-			panic(fmt.Errorf("db file create error: %w", err))
-		}
-	}
 	kvDB, err := bbolt.Open(opts.dbFile, 0o600, nil)
 	if err != nil {
 		panic(fmt.Errorf("db open error: %w", err))
