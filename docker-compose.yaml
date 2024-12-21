@@ -1,4 +1,11 @@
 services:
+  diffy:
+    build: .
+    ports:
+      - "18844:18844"
+    environment:
+      - DB_FILE=/data/bolt.db
+
   minio:
     image: minio/minio:latest
     ports:

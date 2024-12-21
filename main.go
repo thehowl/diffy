@@ -72,19 +72,22 @@ func main() {
 	flag.Parse()
 
 	// Set up database.
+	if _, err := os.Stat(opts.dbFile); os.IsNotExist(err) {
+		_, err := os.Create(opts.dbFile)
+		if err != nil {
+			panic(fmt.Errorf("db file create error: %w", err))
+		}
+	}
 	kvDB, err := bbolt.Open(opts.dbFile, 0o600, nil)
 	if err != nil {
 		panic(fmt.Errorf("db open error: %w", err))
 	}
 
-	ht := &http.Server{
-		PublicURL: opts.publicURL,
-		DB:        &db.DB{DB: kvDB},
-	}
-
+	// Setup storage
+	var serverStorage storage.Storage
 	if opts.s3Endpoint == "" {
 		fmt.Println("using db storage")
-		ht.Storage = storage.NewDBStorage(kvDB, []byte("storage"))
+		serverStorage = storage.NewDBStorage(kvDB, []byte("storage"))
 	} else {
 		fmt.Printf("using s3 storage [endpoint: %s, bucket: %s]\n", opts.s3Endpoint, opts.s3Bucket)
 		minioClient, err := minio.New(opts.s3Endpoint, &minio.Options{
@@ -94,7 +97,13 @@ func main() {
 		if err != nil {
 			panic(fmt.Errorf("minio init error: %w", err))
 		}
-		ht.Storage = storage.NewMinioStorage(minioClient, opts.s3Bucket)
+		serverStorage = storage.NewMinioStorage(minioClient, opts.s3Bucket)
+	}
+
+	ht := &http.Server{
+		PublicURL: opts.publicURL,
+		DB:        &db.DB{DB: kvDB},
+		Storage:   serverStorage,
 	}
 
 	fmt.Println("listening on", opts.listenAddr)
