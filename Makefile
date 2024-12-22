@@ -26,7 +26,7 @@ check: fmt vet test ## Check the code
 
 .PHONY: run
 run: ## Run the server with hot reload.
-	@command -v entr >/dev/null 2>&1 || { echo >&2 "entry required but not installed: https://github.com/eradman/entr"; exit 1; }
+	@command -v entr >/dev/null 2>&1 || { echo >&2 "entr required but not installed: https://github.com/eradman/entr"; exit 1; }
 	@[ -f .env ] && source .env
 	while true; do find . | entr -rcd go run .; sleep 0.5; done
 
