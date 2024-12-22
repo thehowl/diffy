@@ -47,6 +47,13 @@ type minioStorage struct {
 
 var _ Storage = (*minioStorage)(nil)
 
+func NewMinioStorage(cl *minio.Client, bucketName string) Storage {
+	return &minioStorage{
+		cl:         cl,
+		bucketName: bucketName,
+	}
+}
+
 func (m *minioStorage) Get(ctx context.Context, id string) ([]byte, error) {
 	obj, err := m.cl.GetObject(ctx, m.bucketName, id, minio.GetObjectOptions{})
 	if err != nil {
@@ -159,7 +166,11 @@ type cachedStorage struct {
 	cleaning chan struct{}
 }
 
-func NewCachedStorage(cache ListStorage, permanent Storage, maxSize uint64) (*cachedStorage, error) {
+func NewCachedStorage(
+	cache ListStorage,
+	permanent Storage,
+	maxSize uint64,
+) (*cachedStorage, error) {
 	objects := make(map[string]*cachedObject)
 	ready := make(chan struct{})
 	close(ready)
