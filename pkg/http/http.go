@@ -270,30 +270,14 @@ func (s *Server) serveDiff(w http.ResponseWriter, r *http.Request) error {
 	// parse filename
 	id := chi.URLParam(r, "id")
 
-	// determine whether file exists
-	f, err := s.DB.GetFile(id)
+	files, err := s.getFiles(r.Context(), id)
 	if err != nil {
 		return err
 	}
-	if f.IsZero() {
-		w.WriteHeader(404)
+	if len(files) == 0 {
 		w.Write([]byte("not found"))
+		w.WriteHeader(404)
 		return nil
-	}
-
-	// get from storage
-	data, err := s.Storage.Get(r.Context(), id)
-	if err != nil {
-		return err
-	}
-
-	// decode
-	files, err := tgzReadFiles(data)
-	if err != nil {
-		return err
-	}
-	if len(files) != 2 {
-		return fmt.Errorf("expected 2 files got %d", len(files))
 	}
 
 	edits := myers.ComputeEdits("x", files[0].Content, files[1].Content)
@@ -310,6 +294,73 @@ func (s *Server) serveDiff(w http.ResponseWriter, r *http.Request) error {
 		Diff gotextdiff.Unified
 	}
 	return templates.Templates.ExecuteTemplate(w, "file.tmpl", tplData{ID: id, Diff: unified})
+}
+
+func (s *Server) getFiles(ctx context.Context, id string) ([]diffFile, error) {
+	if id == "example" {
+		return exampleFiles, nil
+	}
+
+	// determine whether file exists
+	f, err := s.DB.GetFile(id)
+	if err != nil {
+		return nil, err
+	}
+	if f.IsZero() {
+		return nil, nil
+	}
+
+	// get from storage
+	data, err := s.Storage.Get(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+
+	// decode
+	files, err := tgzReadFiles(data)
+	if err != nil {
+		return nil, err
+	}
+	if len(files) != 2 {
+		return nil, fmt.Errorf("expected 2 files got %d", len(files))
+	}
+
+	return files, nil
+}
+
+var exampleFiles = []diffFile{
+	{
+		Name: "main.go",
+		Content: `package main
+
+import "fmt"
+
+func main() {
+	fmt.Println("hello world")
+}
+`,
+	},
+	{
+		Name: "server.go",
+		Content: `package main
+
+import (
+	"fmt"
+	"net/http"
+	"os"
+)
+
+func main() {
+	if os.Getenv("DEBUG") == "1" {
+		fmt.Println("hello world")
+	}
+	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		w.Write([]byte("hello internet"))
+	})
+	panic(http.ListenAndServe(":8080", nil))
+}
+`,
+	},
 }
 
 type diffFile struct {
@@ -358,30 +409,14 @@ func (s *Server) _serveFile(w http.ResponseWriter, r *http.Request, idx int) err
 	// parse filename
 	id := chi.URLParam(r, "id")
 
-	// determine whether file exists
-	f, err := s.DB.GetFile(id)
+	files, err := s.getFiles(r.Context(), id)
 	if err != nil {
 		return err
 	}
-	if f.IsZero() {
+	if len(files) == 0 {
 		w.WriteHeader(404)
 		w.Write([]byte("not found"))
 		return nil
-	}
-
-	// get from storage
-	data, err := s.Storage.Get(r.Context(), id)
-	if err != nil {
-		return err
-	}
-
-	// decode
-	files, err := tgzReadFiles(data)
-	if err != nil {
-		return err
-	}
-	if len(files) != 2 {
-		return fmt.Errorf("expected 2 files got %d", len(files))
 	}
 
 	fn := files[idx]
