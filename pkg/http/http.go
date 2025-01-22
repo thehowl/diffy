@@ -17,6 +17,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+	"unicode"
+	"unicode/utf8"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
@@ -279,7 +281,22 @@ func (s *Server) serveDiff(w http.ResponseWriter, r *http.Request) error {
 		return nil
 	}
 
-	unif := diff.Diff(files[0].Name, []byte(files[0].Content), files[1].Name, []byte(files[1].Content))
+	opts := diff.Options{Context: 3}
+	space := r.URL.Query().Get("w")
+	switch space {
+	case "w": // --ignore-all-space
+		opts.Normal = ignoreAllSpace
+	case "b": // --ignore-space-change
+		opts.Normal = ignoreSpaceChange
+	default:
+		space = ""
+	}
+
+	unif := diff.DiffWithOptions(
+		files[0].Name, []byte(files[0].Content),
+		files[1].Name, []byte(files[1].Content),
+		opts,
+	)
 
 	if !isBrowser(r) {
 		w.Header().Set(ctHeader, ctPlain)
@@ -288,10 +305,15 @@ func (s *Server) serveDiff(w http.ResponseWriter, r *http.Request) error {
 	}
 
 	type tplData struct {
-		ID   string
-		Diff diff.Unified
+		ID    string
+		Diff  diff.Unified
+		Space string
 	}
-	return templates.Templates.ExecuteTemplate(w, "file.tmpl", tplData{ID: id, Diff: unif})
+	return templates.Templates.ExecuteTemplate(w, "file.tmpl", tplData{
+		ID:    id,
+		Diff:  unif,
+		Space: space,
+	})
 }
 
 func (s *Server) getFiles(ctx context.Context, id string) ([]diffFile, error) {
@@ -324,6 +346,32 @@ func (s *Server) getFiles(ctx context.Context, id string) ([]diffFile, error) {
 	}
 
 	return files, nil
+}
+
+func ignoreAllSpace(s string) string {
+	s = strings.TrimSpace(s)
+	dst := make([]rune, 0, len(s))
+	for _, rn := range s {
+		if !isSpaceNotNewline(rn) {
+			dst = append(dst, rn)
+		}
+	}
+	return string(dst)
+}
+
+func ignoreSpaceChange(s string) string {
+	s = strings.TrimRightFunc(s, unicode.IsSpace)
+	flds := strings.FieldsFunc("\n"+s, isSpaceNotNewline)
+	joined := strings.Join(flds, " ")
+	firstRune, _ := utf8.DecodeRuneInString(s)
+	if unicode.IsSpace(firstRune) {
+		joined = " " + joined
+	}
+	return joined
+}
+
+func isSpaceNotNewline(r rune) bool {
+	return unicode.IsSpace(r) && r != '\n'
 }
 
 var exampleFiles = []diffFile{

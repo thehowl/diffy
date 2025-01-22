@@ -93,19 +93,26 @@ type pair struct{ x, y int }
 // to wait longer (to be patient) for the diff, meaning that it is a slower algorithm,
 // when in fact the algorithm is faster than the standard one.
 func Diff(oldName string, old []byte, newName string, new []byte) Unified {
-	return DiffOptions(oldName, old, newName, new, Options{
+	return DiffWithOptions(oldName, old, newName, new, Options{
 		Context: 3,
 	})
 }
 
+// Options are the options that can be passed to [DiffWithOptions].
 type Options struct {
 	// Normal is a function that "normalizes" the strings, to correct comparison.
 	Normal func(s string) string
 	// Context are the lines of context to add to the hunks.
+	// [Diff] uses a default value of 3.
 	Context int
 }
 
-func DiffOptions(oldName string, old []byte, newName string, new []byte, opts Options) Unified {
+// DiffWithOptions performs the diff on the given files, using the given [Options].
+func DiffWithOptions(oldName string, old []byte, newName string, new []byte, opts Options) Unified {
+	// TODO: Context lines should likely "intelligently" choose between the old
+	// and new depending on whether the previous line was from the new or old text.
+	// (This is useful when doing diff ignoring whitespace).
+
 	u := Unified{OldName: oldName, NewName: newName}
 	if bytes.Equal(old, new) {
 		return u
