@@ -4,40 +4,14 @@ import (
 	"embed"
 	"fmt"
 	"html/template"
-	"strings"
 
-	"github.com/hexops/gotextdiff"
+	"github.com/thehowl/diffy/pkg/diff"
 )
 
 var (
 	funcMap = map[string]any{
-		"hunk_header": func(hunk *gotextdiff.Hunk) string {
-			fromCount, toCount := 0, 0
-			for _, l := range hunk.Lines {
-				switch l.Kind {
-				case gotextdiff.Delete:
-					fromCount++
-				case gotextdiff.Insert:
-					toCount++
-				default:
-					fromCount++
-					toCount++
-				}
-			}
-			var bld strings.Builder
-			bld.WriteString("@@")
-			if fromCount > 1 {
-				fmt.Fprintf(&bld, " -%d,%d", hunk.FromLine, fromCount)
-			} else {
-				fmt.Fprintf(&bld, " -%d", hunk.FromLine)
-			}
-			if toCount > 1 {
-				fmt.Fprintf(&bld, " +%d,%d", hunk.ToLine, toCount)
-			} else {
-				fmt.Fprintf(&bld, " +%d", hunk.ToLine)
-			}
-			bld.WriteString(" @@")
-			return bld.String()
+		"hunk_header": func(hunk diff.Hunk) string {
+			return fmt.Sprintf("@@ -%d,%d +%d,%d @@", hunk.LineOld, hunk.CountOld, hunk.LineNew, hunk.CountNew)
 		},
 	}
 	Templates = template.Must(

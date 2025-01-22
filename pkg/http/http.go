@@ -20,10 +20,9 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
-	"github.com/hexops/gotextdiff"
-	"github.com/hexops/gotextdiff/myers"
 	"github.com/thehowl/cford32"
 	"github.com/thehowl/diffy/pkg/db"
+	"github.com/thehowl/diffy/pkg/diff"
 	"github.com/thehowl/diffy/pkg/storage"
 	"github.com/thehowl/diffy/templates"
 	"go.uber.org/multierr"
@@ -280,20 +279,19 @@ func (s *Server) serveDiff(w http.ResponseWriter, r *http.Request) error {
 		return nil
 	}
 
-	edits := myers.ComputeEdits("x", files[0].Content, files[1].Content)
-	unified := gotextdiff.ToUnified(files[0].Name, files[1].Name, files[0].Content, edits)
+	unif := diff.Diff(files[0].Name, []byte(files[0].Content), files[1].Name, []byte(files[1].Content))
 
 	if !isBrowser(r) {
 		w.Header().Set(ctHeader, ctPlain)
-		fmt.Fprint(w, unified)
+		w.Write([]byte(unif.String()))
 		return nil
 	}
 
 	type tplData struct {
 		ID   string
-		Diff gotextdiff.Unified
+		Diff diff.Unified
 	}
-	return templates.Templates.ExecuteTemplate(w, "file.tmpl", tplData{ID: id, Diff: unified})
+	return templates.Templates.ExecuteTemplate(w, "file.tmpl", tplData{ID: id, Diff: unif})
 }
 
 func (s *Server) getFiles(ctx context.Context, id string) ([]diffFile, error) {

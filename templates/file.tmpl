@@ -24,26 +24,22 @@
 <div><i>
 	[unified | split]
 	[whitespace: consider | ignore]
-	[algo: myers | diffp]
 	[light | dark]
 </i></div>
 
 <div class="diff">
 
-<pre class="diff">--- <a href="/{{ .ID }}/red">{{ .Diff.From }}</a>
-+++ <a href="/{{ .ID }}/green">{{ .Diff.To }}</a>
+<pre>--- <a href="/{{ .ID }}/red">{{ .Diff.OldName }}</a>
++++ <a href="/{{ .ID }}/green">{{ .Diff.NewName }}</a>
 {{ range .Diff.Hunks -}}
 {{- hunk_header . }}
 {{ range .Lines -}}
-<div class="line-{{ .Kind.String }}">
-	{{- if eq .Kind.String "delete" -}}
-		-
-	{{- else if eq .Kind.String "insert" -}}
-		+
-	{{- else }} {{ end -}}
-{{- .Content -}}
+<div class="line-{{ if .IsDelete }}delete{{ else if .IsInsert }}insert{{ else }}equal{{ end }}">
+{{- . -}}
 </div>
 {{- end -}}
+{{- else }}
+<i>files are identical</i>
 {{ end -}}
 </pre>
 </body>
