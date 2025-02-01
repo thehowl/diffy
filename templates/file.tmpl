@@ -25,12 +25,12 @@
 	{{ $s := .Space }}
 	[unified | split]
 	[whitespace:
-		{{ if eq $s "" }}<b>consider</b>{{ else }}<a href="/{{ .ID }}">consider</a>{{ end }} |
-		{{ if eq $s "w" }}<b>ignore all (-w)</b>{{ else }}<a href="/{{ .ID }}?w=w">ignore all (-w)</a>{{ end }} |
-		{{ if eq $s "b" }}<b>ignore space change (-b)</b>{{ else }}<a href="/{{ .ID }}?w=b">ignore space change (-b)</a>{{ end }}
+		{{ if eq $s "" }}<b>consider</b>{{ else }}<a href="/{{ .ID }}{{ .WithQueryValue "w" "" }}">consider</a>{{ end }} |
+		{{ if eq $s "w" }}<b>ignore all (-w)</b>{{ else }}<a href="/{{ .ID }}{{ .WithQueryValue "w" "w" }}">ignore all (-w)</a>{{ end }} |
+		{{ if eq $s "b" }}<b>ignore space change (-b)</b>{{ else }}<a href="/{{ .ID }}{{ .WithQueryValue "w" "b" }}">ignore space change (-b)</a>{{ end }}
 	]
 	<!-- TODO: the available options depend on the current "context" value -->
-	[context: 0 | 1 | 2 | <b>3</b> | 4 | 5 | 6 ]
+	[context: {{ .ContextLinks }}]
 	[light | dark]
 </i></div>
 

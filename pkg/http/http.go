@@ -58,9 +58,7 @@ const (
 	ctPlain  = "text/plain; charset=utf-8"
 )
 
-var (
-	reBrowser = regexp.MustCompile("(?i)(?:chrome|firefox|safari|gecko)/")
-)
+var reBrowser = regexp.MustCompile("(?i)(?:chrome|firefox|safari|gecko)/")
 
 func isBrowser(r *http.Request) bool {
 	ua := r.UserAgent()
@@ -281,8 +279,9 @@ func (s *Server) serveDiff(w http.ResponseWriter, r *http.Request) error {
 		return nil
 	}
 
+	qry := r.URL.Query()
 	opts := diff.Options{Context: 3}
-	space := r.URL.Query().Get("w")
+	space := qry.Get("w")
 	switch space {
 	case "w": // --ignore-all-space
 		opts.Normal = ignoreAllSpace
@@ -290,6 +289,12 @@ func (s *Server) serveDiff(w http.ResponseWriter, r *http.Request) error {
 		opts.Normal = ignoreSpaceChange
 	default:
 		space = ""
+	}
+	opts.Context, err = strconv.Atoi(qry.Get("c"))
+	if err != nil {
+		opts.Context = 3
+	} else {
+		opts.Context = max(0, min(1000, opts.Context))
 	}
 
 	unif := diff.DiffWithOptions(
@@ -303,16 +308,12 @@ func (s *Server) serveDiff(w http.ResponseWriter, r *http.Request) error {
 		w.Write([]byte(unif.String()))
 		return nil
 	}
-
-	type tplData struct {
-		ID    string
-		Diff  diff.Unified
-		Space string
-	}
-	return templates.Templates.ExecuteTemplate(w, "file.tmpl", tplData{
-		ID:    id,
-		Diff:  unif,
-		Space: space,
+	return templates.Templates.ExecuteTemplate(w, "file.tmpl", &templates.FileTemplateData{
+		ID:      id,
+		Diff:    unif,
+		Space:   space,
+		Context: opts.Context,
+		Query:   r.URL.Query(),
 	})
 }
 
@@ -381,8 +382,12 @@ var exampleFiles = []diffFile{
 
 import "fmt"
 
+func sayHello(to string) string {
+	return "hello " + to + "!"
+}
+
 func main() {
-	fmt.Println("hello world")
+	fmt.Println(sayHello("world"))
 }
 `,
 	},
@@ -396,12 +401,17 @@ import (
 	"os"
 )
 
+// sayHello greets whoever is passed in as an argument.
+func sayHello(to string) string {
+	return "hello " + to + "!"
+}
+
 func main() {
 	if os.Getenv("DEBUG") == "1" {
-		fmt.Println("hello world")
+		fmt.Println(sayHello("world"))
 	}
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		w.Write([]byte("hello internet"))
+		w.Write([]byte(sayHello("internet")))
 	})
 	panic(http.ListenAndServe(":8080", nil))
 }
