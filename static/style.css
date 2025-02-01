@@ -1,0 +1,170 @@
+/* Theme Variables */
+:root {
+	/* Base colors */
+	--background: #fafafa;
+	--text-color: #2d3748;
+
+	/* UI colors */
+	--neutral-muted: #718096;
+	--link-color: #2563eb;
+	--link-visited: #7c3aed;
+
+	/* Diff colors */
+	--diff-delete: #dc2626;
+	--diff-insert: #059669;
+	--diff-equal: #2d3748;
+}
+
+:root[data-theme="dark"] {
+	--background: #1b1d1e;
+	--text-color: #e2e8f0;
+	--neutral-muted: #a0aec0;
+	--link-color: #60a5fa;
+	--link-visited: #a78bfa;
+	--diff-delete: #df3b3b;
+	--diff-insert: #34d399;
+	--diff-equal: #e2e8f0;
+}
+
+/* Base Styles */
+body {
+	font-family: monospace;
+	background: var(--background);
+	color: var(--text-color);
+	font-size: 13px;
+}
+
+.container {
+	max-width: 960px;
+	margin: 0 auto;
+}
+
+/* Typography and Links */
+a {
+	color: var(--link-color);
+	text-decoration: none;
+}
+
+a:hover {
+	text-decoration: underline;
+}
+
+a:visited {
+	color: var(--link-visited);
+}
+
+/* Theme Selector */
+.theme-selector {
+	display: none;
+}
+
+[data-theme] .theme-selector {
+	display: unset;
+}
+
+.theme-selector a:not([href]) {
+	color: inherit;
+	font-weight: bold;
+	text-decoration: none;
+}
+
+/* Header/Jumbo Section */
+.jumbo h1 {
+	text-align: center;
+	margin-bottom: 0;
+	font-size: 5em;
+	font-weight: bold;
+	font-style: italic;
+}
+
+.jumbo p {
+	text-align: center;
+	margin-bottom: 2.5em;
+}
+
+/* Form Layout */
+.submit-form {
+	display: flex;
+}
+
+.submit-form > div {
+	width: 100%;
+}
+
+.submit-form > div:first-child {
+	margin-right: 8px;
+}
+
+.submit-form > div:last-child {
+	margin-left: 8px;
+}
+
+/* Form Inputs */
+.submit-form input,
+.submit-form textarea {
+	display: block;
+	width: 100%;
+	font-family: monospace;
+	box-sizing: border-box;
+	font-size: 1em;
+	padding: 8px;
+	border: 1px solid var(--neutral-muted);
+	border-radius: 4px;
+	background: var(--background);
+	color: var(--text-color);
+	margin-bottom: 8px;
+	resize: none;
+}
+
+.submit-form input:hover,
+.submit-form textarea:hover {
+	border-color: var(--text-color);
+}
+
+/* Submit Button */
+.submit-form-submit {
+	text-align: center;
+	margin-top: 10px;
+}
+
+.submit-form-submit input {
+	display: inline-block;
+	width: auto;
+	min-width: 120px;
+	padding: 8px 16px;
+	border: 1px solid var(--neutral-muted);
+	border-radius: 4px;
+	background: var(--background);
+	color: var(--text-color);
+	cursor: pointer;
+	font-family: monospace;
+	font-size: 1em;
+	margin-top: 16px;
+}
+
+.submit-form-submit input:hover {
+	border-color: var(--text-color);
+	background: var(--text-color);
+	color: var(--background);
+}
+
+.submit-form-submit input:active {
+	transform: translateY(1px);
+}
+
+/* Diff Display */
+.diff {
+	color: var(--neutral-muted);
+}
+
+.diff .line-delete {
+	color: var(--diff-delete);
+}
+
+.diff .line-insert {
+	color: var(--diff-insert);
+}
+
+.diff .line-equal {
+	color: var(--diff-equal);
+}

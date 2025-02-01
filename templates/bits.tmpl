@@ -1,0 +1,15 @@
+{{ define "dark_mode_script" }}
+<script>
+	let theme = localStorage.getItem('data-theme')
+	if (
+		theme === null &&
+		window.matchMedia('(prefers-color-scheme: dark)').matches
+	) {
+		theme = 'dark'
+	}
+	if (theme != 'dark' && theme != 'light') {
+		theme = 'light'
+	}
+	document.documentElement.setAttribute('data-theme', theme)
+</script>
+{{ end }}

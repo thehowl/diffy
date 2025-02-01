@@ -2,36 +2,23 @@
 <html>
 <head>
 	<title>{{ .ID }} - diffy</title>
-	<style>
-		body {
-			font-family: monospace;
-		}
-		.diff {
-			color: #444;
-		}
-		.line-delete {
-			color: #a00000;
-		}
-		.line-insert {
-			color: #00A020;
-		}
-		.line-equal {
-			color: #000;
-		}
-	</style>
+	<link rel="stylesheet" href="/static/style.css">
+	{{ template "dark_mode_script" . }}
 </head>
 <body>
 <div><i>
 	{{ $s := .Space }}
+	<a href="/"><b>diffy</b></a>
 	[unified | split]
 	[whitespace:
 		{{ if eq $s "" }}<b>consider</b>{{ else }}<a href="/{{ .ID }}{{ .WithQueryValue "w" "" }}">consider</a>{{ end }} |
 		{{ if eq $s "w" }}<b>ignore all (-w)</b>{{ else }}<a href="/{{ .ID }}{{ .WithQueryValue "w" "w" }}">ignore all (-w)</a>{{ end }} |
 		{{ if eq $s "b" }}<b>ignore space change (-b)</b>{{ else }}<a href="/{{ .ID }}{{ .WithQueryValue "w" "b" }}">ignore space change (-b)</a>{{ end }}
 	]
-	<!-- TODO: the available options depend on the current "context" value -->
 	[context: {{ .ContextLinks }}]
-	[light | dark]
+	<span class="theme-selector">
+		[theme: <a href="#" data-theme="light">light</a> | <a href="#" data-theme="dark">dark</a>]
+	</span>
 </i></div>
 
 <div class="diff">
@@ -49,5 +36,7 @@
 <i>files are identical</i>
 {{ end -}}
 </pre>
+
+<script src="static/script.js" async></script>
 </body>
 </html>
