@@ -153,8 +153,36 @@ a:visited {
 }
 
 /* Diff Display */
+.diff-settings {
+	margin-bottom: 1em;
+}
+
 .diff {
 	color: var(--neutral-muted);
+	width: 100%;
+	display: grid;
+	grid-template-columns: max-content max-content max-content 1fr;
+	column-gap: 1em;
+	overflow-x: auto;
+}
+
+.diff > * {
+	margin: 0;
+	padding: 0;
+}
+
+.diff > *:nth-child(4n + 1)::before,
+.diff > *:nth-child(4n + 2)::before {
+	content: attr(data-line-number);
+	user-select: none;
+}
+.diff > *:nth-child(4n + 3) {
+	user-select: none;
+}
+
+.diff > *:nth-child(4n) {
+	white-space: pre;
+	tab-size: 4;
 }
 
 .diff .line-delete {

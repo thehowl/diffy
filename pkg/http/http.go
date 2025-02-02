@@ -268,6 +268,13 @@ func tarWriteMultipart(tw *tar.Writer, name string, size int64, r io.Reader) err
 func (s *Server) serveDiff(w http.ResponseWriter, r *http.Request) error {
 	// parse filename
 	id := chi.URLParam(r, "id")
+	wantRaw := false
+	if strings.HasSuffix(id, ".diff") {
+		id = id[:len(id)-len(".diff")]
+		wantRaw = true
+	} else if !isBrowser(r) {
+		wantRaw = true
+	}
 
 	files, err := s.getFiles(r.Context(), id)
 	if err != nil {
@@ -303,7 +310,7 @@ func (s *Server) serveDiff(w http.ResponseWriter, r *http.Request) error {
 		opts,
 	)
 
-	if !isBrowser(r) {
+	if wantRaw {
 		w.Header().Set(ctHeader, ctPlain)
 		w.Write([]byte(unif.String()))
 		return nil

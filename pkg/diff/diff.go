@@ -33,13 +33,29 @@ type Hunk struct {
 }
 
 // HunkLine is an individual line in a [Hunk]
-type HunkLine string
+type HunkLine struct {
+	NumberX int
+	NumberY int
+	Value   string
+}
 
-func (l HunkLine) IsInsert() bool { return l[0] == '+' }
-func (l HunkLine) IsDelete() bool { return l[0] == '-' }
-func (l HunkLine) IsEqual() bool  { return l[0] == ' ' }
+func (l HunkLine) Type() string {
+	switch l.Value[0] {
+	case '+':
+		return "insert"
+	case '-':
+		return "delete"
+	case ' ':
+		return "equal"
+	}
+	return "invalid"
+}
 
-func (l HunkLine) Content() string { return string(l[1:]) }
+func (l HunkLine) Symbol() byte {
+	return l.Value[0]
+}
+
+func (l HunkLine) Content() string { return string(l.Value[1:]) }
 
 func (d Unified) String() string {
 	if len(d.Hunks) == 0 {
@@ -53,7 +69,7 @@ func (d Unified) String() string {
 	for _, hunk := range d.Hunks {
 		fmt.Fprintf(&b, "@@ -%d,%d +%d,%d @@\n", hunk.LineOld, hunk.CountOld, hunk.LineNew, hunk.CountNew)
 		for _, s := range hunk.Lines {
-			b.WriteString(string(s))
+			b.WriteString(string(s.Value))
 			b.WriteByte('\n')
 		}
 	}
@@ -156,12 +172,12 @@ func DiffWithOptions(oldName string, old []byte, newName string, new []byte, opt
 		// Emit the mismatched lines before start into this chunk.
 		// (No effect on first sentinel iteration, when start = {0,0}.)
 		for _, s := range xDisp[done.x:start.x] {
-			ctext = append(ctext, HunkLine("-"+s))
 			count.x++
+			ctext = append(ctext, HunkLine{NumberX: chunk.x + count.x, NumberY: -1, Value: "-" + s})
 		}
 		for _, s := range yDisp[done.y:start.y] {
-			ctext = append(ctext, HunkLine("+"+s))
 			count.y++
+			ctext = append(ctext, HunkLine{NumberX: -1, NumberY: chunk.y + count.y, Value: "+" + s})
 		}
 
 		// If we're not at EOF and have too few common lines,
@@ -169,9 +185,9 @@ func DiffWithOptions(oldName string, old []byte, newName string, new []byte, opt
 		if (end.x < len(x) || end.y < len(y)) &&
 			(end.x-start.x < opts.Context || (len(ctext) > 0 && end.x-start.x < 2*opts.Context)) {
 			for _, s := range xDisp[start.x:end.x] {
-				ctext = append(ctext, HunkLine(" "+s))
 				count.x++
 				count.y++
+				ctext = append(ctext, HunkLine{NumberX: chunk.x + count.x, NumberY: chunk.y + count.y, Value: " " + s})
 			}
 			done = end
 			continue
@@ -184,9 +200,9 @@ func DiffWithOptions(oldName string, old []byte, newName string, new []byte, opt
 				n = opts.Context
 			}
 			for _, s := range xDisp[start.x : start.x+n] {
-				ctext = append(ctext, HunkLine(" "+s))
 				count.x++
 				count.y++
+				ctext = append(ctext, HunkLine{NumberX: chunk.x + count.x, NumberY: chunk.y + count.y, Value: " " + s})
 			}
 			done = pair{start.x + n, start.y + n}
 
@@ -220,9 +236,9 @@ func DiffWithOptions(oldName string, old []byte, newName string, new []byte, opt
 		// Otherwise start a new chunk.
 		chunk = pair{end.x - opts.Context, end.y - opts.Context}
 		for _, s := range xDisp[chunk.x:end.x] {
-			ctext = append(ctext, HunkLine(" "+s))
 			count.x++
 			count.y++
+			ctext = append(ctext, HunkLine{NumberX: chunk.x + count.x, NumberY: chunk.y + count.y, Value: " " + s})
 		}
 		done = end
 	}

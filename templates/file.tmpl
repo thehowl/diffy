@@ -2,11 +2,10 @@
 <html>
 <head>
 	<title>{{ .ID }} - diffy</title>
-	<link rel="stylesheet" href="/static/style.css">
-	{{ template "dark_mode_script" . }}
+	{{ template "head_tags" . }}
 </head>
 <body>
-<div><i>
+<div class="diff-settings"><i>
 	{{ $s := .Space }}
 	<a href="/"><b>diffy</b></a>
 	[unified | split]
@@ -16,26 +15,46 @@
 		{{ if eq $s "b" }}<b>ignore space change (-b)</b>{{ else }}<a href="/{{ .ID }}{{ .WithQueryValue "w" "b" }}">ignore space change (-b)</a>{{ end }}
 	]
 	[context: {{ .ContextLinks }}]
+	[<a href="/{{ .ID }}.diff{{ with .Query.Encode }}?{{ . }}{{ end }}">raw diff</a>]
 	<span class="theme-selector">
 		[theme: <a href="#" data-theme="light">light</a> | <a href="#" data-theme="dark">dark</a>]
 	</span>
 </i></div>
 
 <div class="diff">
+	<div></div>
+	<div></div>
+	<div></div>
+	<div>--- <a href="/{{ .ID }}/red">{{ .Diff.OldName }}</a></div>
 
-<pre>--- <a href="/{{ .ID }}/red">{{ .Diff.OldName }}</a>
-+++ <a href="/{{ .ID }}/green">{{ .Diff.NewName }}</a>
-{{ range .Diff.Hunks -}}
-{{- hunk_header . }}
-{{ range .Lines -}}
-<div class="line-{{ if .IsDelete }}delete{{ else if .IsInsert }}insert{{ else }}equal{{ end }}">
-{{- . -}}
+	<div></div>
+	<div></div>
+	<div></div>
+	<div>+++ <a href="/{{ .ID }}/green">{{ .Diff.NewName }}</a></div>
+
+	{{ range .Diff.Hunks }}
+		<div></div>
+		<div></div>
+		<div></div>
+		<div>{{ hunk_header . }}</div>
+
+		{{ range .Lines -}}
+		<div data-line-number="{{ if ne .NumberX -1 }}{{ .NumberX }}{{ end }}"></div>
+		<div data-line-number="{{ if ne .NumberY -1 }}{{ .NumberY }}{{ end }}"></div>
+		<div class="diff-symbol line-{{ .Type }}">{{ printf "%c" .Symbol }}</div>
+		<div class="line-{{ .Type }}">
+		{{- .Content -}}
+		</div>
+		{{- end -}}
+		{{- else }}
+		<div></div>
+		<div></div>
+		<div></div>
+		<div>
+			<i>files are identical</i>
+		</div>
+	{{ end -}}
 </div>
-{{- end -}}
-{{- else }}
-<i>files are identical</i>
-{{ end -}}
-</pre>
 
 <script src="static/script.js" async></script>
 </body>
