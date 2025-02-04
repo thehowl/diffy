@@ -41,6 +41,12 @@ type FileTemplateData struct {
 }
 
 func (f *FileTemplateData) WithQueryValue(key, value string) string {
+	if key == "" && value == "" {
+		if len(f.Query) == 0 {
+			return ""
+		}
+		return "?" + f.Query.Encode()
+	}
 	uvCopy := make(url.Values)
 	maps.Copy(uvCopy, f.Query)
 	if value == "" {

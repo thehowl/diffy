@@ -10,8 +10,8 @@
 	--link-visited: #7c3aed;
 
 	/* Diff colors */
-	--diff-delete: #dc2626;
-	--diff-insert: #059669;
+	--diff-delete: #9e1a1a;
+	--diff-insert: #0b5611;
 	--diff-equal: #2d3748;
 }
 
@@ -21,7 +21,7 @@
 	--neutral-muted: #a0aec0;
 	--link-color: #60a5fa;
 	--link-visited: #a78bfa;
-	--diff-delete: #df3b3b;
+	--diff-delete: #ea535a;
 	--diff-insert: #34d399;
 	--diff-equal: #e2e8f0;
 }
