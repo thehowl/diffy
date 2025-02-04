@@ -18,6 +18,9 @@ var (
 		"hunk_header": func(hunk diff.Hunk) string {
 			return fmt.Sprintf("@@ -%d,%d +%d,%d @@", hunk.LineOld, hunk.CountOld, hunk.LineNew, hunk.CountNew)
 		},
+		"repeat": func(n int) []struct{} {
+			return make([]struct{}, n)
+		},
 	}
 	Templates = template.Must(
 		template.New("").
@@ -33,6 +36,7 @@ type FileTemplateData struct {
 	Diff    diff.Unified
 	Space   string
 	Context int
+	Split   bool
 	Query   url.Values
 }
 

@@ -320,6 +320,7 @@ func (s *Server) serveDiff(w http.ResponseWriter, r *http.Request) error {
 		Diff:    unif,
 		Space:   space,
 		Context: opts.Context,
+		Split:   qry.Has("split"),
 		Query:   r.URL.Query(),
 	})
 }

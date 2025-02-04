@@ -1,3 +1,112 @@
+{{ define "diff_unified" }}
+<div class="diff diff-unified">
+	<div class="line-number"></div>
+	<div class="line-number"></div>
+	<div class="symbol"></div>
+	<div class="source">--- <a href="/{{ .ID }}/red">{{ .Diff.OldName }}</a></div>
+
+	<div class="line-number"></div>
+	<div class="line-number"></div>
+	<div class="symbol"></div>
+	<div class="source">+++ <a href="/{{ .ID }}/green">{{ .Diff.NewName }}</a></div>
+
+	{{ range .Diff.Hunks }}
+		<div class="line-number"></div>
+		<div class="line-number"></div>
+		<div class="symbol"></div>
+		<div class="source">{{ hunk_header . }}</div>
+
+		{{ range .Lines -}}
+		<div class="line-number" data-line-number="{{ if ne .NumberX -1 }}{{ .NumberX }}{{ end }}"></div>
+		<div class="line-number" data-line-number="{{ if ne .NumberY -1 }}{{ .NumberY }}{{ end }}"></div>
+		<div class="symbol line-{{ .Type }}">{{ printf "%c" .Symbol }}</div>
+		<div class="source line-{{ .Type }}">
+		{{- .Content -}}
+		</div>
+		{{- end -}}
+	{{- else }}
+		<div class="line-number"></div>
+		<div class="line-number"></div>
+		<div class="symbol"></div>
+		<div class="source">
+			<i>files are identical</i>
+		</div>
+	{{ end -}}
+</div>
+{{ end -}}
+{{ define "diff_split" }}
+<div class="diff-split-columns">
+	<div>
+		<div class="diff diff-split-column">
+			<div class="line-number"></div>
+			<div class="symbol"></div>
+			<div class="source">--- <a href="/{{ .ID }}/red">{{ .Diff.OldName }}</a></div>
+
+			{{ range .Diff.Hunks }}
+				<div class="line-number"></div>
+				<div class="symbol"></div>
+				<div class="source">{{ hunk_header . }}</div>
+
+				{{- $pads := .SplitViewPaddings.Red -}}
+				{{ range $index, $_ := .Lines -}}
+					{{- if ne .Type "insert" }}
+						<div class="line-number" data-line-number="{{ if ne .NumberX -1 }}{{ .NumberX }}{{ end }}"></div>
+						<div class="symbol line-{{ .Type }}">{{ printf "%c" .Symbol }}</div>
+						<div class="source line-{{ .Type }}">
+							{{- .Content -}}
+						</div>
+					{{- end -}}
+					{{- with index $pads $index -}}
+						{{- range repeat . -}}
+							<div class="line-number"></div><div class="symbol"></div><div class="source"></div>
+						{{- end -}}
+					{{- end -}}
+				{{- end -}}
+			{{- else }}
+				<div class="line-number"></div>
+				<div class="symbol"></div>
+				<div class="source">
+					<i>files are identical</i>
+				</div>
+			{{ end -}}
+		</div>
+	</div>
+	<div>
+		<div class="diff diff-split-column">
+			<div class="line-number"></div>
+			<div class="symbol"></div>
+			<div class="source">+++ <a href="/{{ .ID }}/green">{{ .Diff.NewName }}</a></div>
+
+			{{ range .Diff.Hunks }}
+				<div class="line-number"></div>
+				<div class="symbol"></div>
+				<div class="source">{{ hunk_header . }}</div>
+
+				{{- $pads := .SplitViewPaddings.Green -}}
+				{{- range $index, $_ := .Lines -}}
+					{{ if ne .Type "delete" }}
+						<div class="line-number" data-line-number="{{ if ne .NumberY -1 }}{{ .NumberY }}{{ end }}"></div>
+						<div class="symbol line-{{ .Type }}">{{ printf "%c" .Symbol }}</div>
+						<div class="source line-{{ .Type }}">
+							{{- .Content -}}
+						</div>
+					{{ end }}
+					{{- with index $pads $index -}}
+						{{- range repeat . -}}
+							<div class="line-number"></div><div class="symbol"></div><div class="source"></div>
+						{{- end -}}
+					{{- end -}}
+				{{- end -}}
+			{{- else }}
+				<div class="line-number"></div>
+				<div class="symbol"></div>
+				<div class="source"></div>
+			{{ end -}}
+		</div>
+	</div>
+</div>
+{{ end -}}
+
 <!doctype html>
 <html>
 <head>
@@ -8,11 +117,14 @@
 <div class="diff-settings"><i>
 	{{ $s := .Space }}
 	<a href="/"><b>diffy</b></a>
-	[unified | split]
+	[
+		{{- if .Split }}<a href="/{{ .ID }}{{ .WithQueryValue "split" "" }}">unified</a>{{ else }}<b>unified</b>{{ end }} |
+		{{ if .Split }}<b>split</b>{{ else }}<a href="/{{ .ID }}{{ .WithQueryValue "split" "1" }}">split</a>{{ end -}}
+	]
 	[whitespace:
 		{{ if eq $s "" }}<b>consider</b>{{ else }}<a href="/{{ .ID }}{{ .WithQueryValue "w" "" }}">consider</a>{{ end }} |
 		{{ if eq $s "w" }}<b>ignore all (-w)</b>{{ else }}<a href="/{{ .ID }}{{ .WithQueryValue "w" "w" }}">ignore all (-w)</a>{{ end }} |
-		{{ if eq $s "b" }}<b>ignore space change (-b)</b>{{ else }}<a href="/{{ .ID }}{{ .WithQueryValue "w" "b" }}">ignore space change (-b)</a>{{ end }}
+		{{ if eq $s "b" }}<b>ignore space change (-b)</b>{{ else }}<a href="/{{ .ID }}{{ .WithQueryValue "w" "b" }}">ignore space change (-b)</a>{{ end -}}
 	]
 	[context: {{ .ContextLinks }}]
 	[<a href="/{{ .ID }}.diff{{ with .Query.Encode }}?{{ . }}{{ end }}">raw diff</a>]
@@ -21,40 +133,11 @@
 	</span>
 </i></div>
 
-<div class="diff">
-	<div></div>
-	<div></div>
-	<div></div>
-	<div>--- <a href="/{{ .ID }}/red">{{ .Diff.OldName }}</a></div>
-
-	<div></div>
-	<div></div>
-	<div></div>
-	<div>+++ <a href="/{{ .ID }}/green">{{ .Diff.NewName }}</a></div>
-
-	{{ range .Diff.Hunks }}
-		<div></div>
-		<div></div>
-		<div></div>
-		<div>{{ hunk_header . }}</div>
-
-		{{ range .Lines -}}
-		<div data-line-number="{{ if ne .NumberX -1 }}{{ .NumberX }}{{ end }}"></div>
-		<div data-line-number="{{ if ne .NumberY -1 }}{{ .NumberY }}{{ end }}"></div>
-		<div class="diff-symbol line-{{ .Type }}">{{ printf "%c" .Symbol }}</div>
-		<div class="line-{{ .Type }}">
-		{{- .Content -}}
-		</div>
-		{{- end -}}
-		{{- else }}
-		<div></div>
-		<div></div>
-		<div></div>
-		<div>
-			<i>files are identical</i>
-		</div>
-	{{ end -}}
-</div>
+{{ if .Split }}
+	{{ template "diff_split" . }}
+{{ else }}
+	{{ template "diff_unified" . }}
+{{ end }}
 
 <script src="static/script.js" async></script>
 </body>

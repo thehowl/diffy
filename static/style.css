@@ -161,28 +161,44 @@ a:visited {
 	color: var(--neutral-muted);
 	width: 100%;
 	display: grid;
-	grid-template-columns: max-content max-content max-content 1fr;
-	column-gap: 1em;
 	overflow-x: auto;
 }
 
+.diff.diff-unified {
+	/* lineX lineY symbol content */
+	grid-template-columns: max-content max-content max-content 1fr;
+}
+
+.diff.diff-split-column {
+	/* lineNumber symbol content */
+	grid-template-columns: max-content max-content 1fr;
+}
+
+.diff-split-columns {
+	display: flex;
+}
+
+.diff-split-columns > * {
+	flex: 1;
+}
+
 .diff > * {
-	margin: 0;
 	padding: 0;
 }
 
-.diff > *:nth-child(4n + 1)::before,
-.diff > *:nth-child(4n + 2)::before {
+.diff > .line-number::before {
 	content: attr(data-line-number);
 	user-select: none;
+	margin-right: 1em;
 }
-.diff > *:nth-child(4n + 3) {
+.diff > .symbol {
 	user-select: none;
 }
 
-.diff > *:nth-child(4n) {
+.diff > .source {
 	white-space: pre;
 	tab-size: 4;
+	user-select: text;
 }
 
 .diff .line-delete {

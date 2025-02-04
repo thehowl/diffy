@@ -32,23 +32,69 @@ type Hunk struct {
 	Lines    []HunkLine
 }
 
-// HunkLine is an individual line in a [Hunk]
+// SplitViewPaddings is used by the eventual template to determine the padding
+// lines to write on the left and right hand side to align the diffs correctly.
+func (h Hunk) SplitViewPaddings() struct{ Red, Green map[int]int } {
+	red, green := map[int]int{}, map[int]int{}
+	for i := 0; i < len(h.Lines); i++ {
+		l := h.Lines[i]
+		if l.Type() == TypeEqual {
+			continue
+		}
+		ins, del := countNextInsertDelete(h.Lines[i:])
+		if ins > del {
+			red[i+del] = ins - del
+		} else if del > ins {
+			green[i+ins] = del - ins
+		}
+		i += ins + del - 1
+	}
+	// We have to return them like this due to text/template.
+	return struct {
+		Red   map[int]int
+		Green map[int]int
+	}{red, green}
+}
+
+func countNextInsertDelete(ll []HunkLine) (ins, del int) {
+	for _, l := range ll {
+		switch l.Type() {
+		case TypeInsert:
+			ins++
+		case TypeDelete:
+			del++
+		default:
+			return
+		}
+	}
+	return
+}
+
+// HunkLine is an individual line in a [Hunk].
 type HunkLine struct {
 	NumberX int
 	NumberY int
 	Value   string
 }
 
+// Possible results of [HunkLine.Type].
+const (
+	TypeInsert  = "insert"
+	TypeDelete  = "delete"
+	TypeEqual   = "equal"
+	TypeInvalid = "invalid"
+)
+
 func (l HunkLine) Type() string {
 	switch l.Value[0] {
 	case '+':
-		return "insert"
+		return TypeInsert
 	case '-':
-		return "delete"
+		return TypeDelete
 	case ' ':
-		return "equal"
+		return TypeEqual
 	}
-	return "invalid"
+	return TypeInvalid
 }
 
 func (l HunkLine) Symbol() byte {
