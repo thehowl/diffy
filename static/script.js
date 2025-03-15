@@ -1,4 +1,6 @@
 (function () {
+	// NOTE: an initial theme set up happens in the head tags;
+	// see templates/bits.tmpl.
 	function updateTheme(newTheme) {
 		document.documentElement.setAttribute("data-theme", newTheme);
 		window.localStorage.setItem("data-theme", newTheme);
