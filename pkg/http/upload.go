@@ -3,17 +3,19 @@ package http
 import (
 	"archive/tar"
 	"bytes"
-	"compress/gzip"
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
 	"errors"
+	"fmt"
 	"io"
 	"mime/multipart"
 	"net/http"
 	"strings"
+	"sync"
 	"time"
 
+	"github.com/klauspost/compress/gzip"
 	"github.com/thehowl/cford32"
 	"github.com/thehowl/diffy/pkg/db"
 	"go.uber.org/multierr"
@@ -22,6 +24,9 @@ import (
 const (
 	maxBodySize        = 1 << 20 // 1M
 	maxMultipartMemory = maxBodySize
+
+	maxBytesWeek = 1 << 20 * 2 // 2M (compressed)
+	maxCallsWeek = 100         // max upload calls per week.
 )
 
 func (s *Server) upload(w http.ResponseWriter, r *http.Request) error {
@@ -71,6 +76,34 @@ func (s *Server) upload(w http.ResponseWriter, r *http.Request) error {
 		return nil
 	}
 
+	now := time.Now().UTC()
+	weekNum := now.YearDay() - 1/7
+	err = s.DB.AddAmountsAndCompare(
+		r.RemoteAddr,
+		db.UsageStat{
+			Period:   fmt.Sprintf("%d/%d", now.Year(), weekNum),
+			NumBytes: uint64(len(arc)),
+			NumCalls: 1,
+		},
+		db.UploadLimits{
+			MaxBytes: maxBytesWeek,
+			MaxCalls: maxCallsWeek,
+		},
+	)
+	if err != nil {
+		if errors.Is(err, db.ErrLimitsExceeded) {
+			w.Header().Set(ctHeader, ctPlain)
+			w.WriteHeader(http.StatusTooManyRequests)
+			resetTime := time.Date(now.Year(), 0, weekNum*7+1, 0, 0, 0, 0, time.UTC)
+			w.Write([]byte(fmt.Sprintf(
+				"limit exceeded; will reset on %s (in %s)\n",
+				resetTime.Format(time.DateTime),
+				resetTime.Sub(now),
+			)))
+			return nil
+		}
+	}
+
 	// not a reupload, save to permanent storage & db.
 	err = s.Storage.Put(r.Context(), id, arc)
 	if err != nil {
@@ -94,6 +127,12 @@ func (s *Server) upload(w http.ResponseWriter, r *http.Request) error {
 	return nil
 }
 
+var gzipWriterPool = sync.Pool{
+	New: func() any {
+		return &gzip.Writer{}
+	},
+}
+
 func archiveFromFormFiles(mf *multipart.Form) ([]byte, error) {
 	// Get red/green files, and ensure they've been POST'ed correctly.
 	redS, greenS := mf.File["red"], mf.File["green"]
@@ -104,7 +143,11 @@ func archiveFromFormFiles(mf *multipart.Form) ([]byte, error) {
 
 	// Create tar.gz writter + buffer.
 	var buf bytes.Buffer
-	gz := gzip.NewWriter(&buf)
+	gz := gzipWriterPool.Get().(*gzip.Writer)
+	gz.Reset(&buf)
+	defer func() {
+		gzipWriterPool.Put(gz)
+	}()
 	tw := tar.NewWriter(gz)
 
 	// Encode multipart files.
@@ -165,12 +208,6 @@ func archiveFromFormValues(mf *multipart.Form) ([]byte, error) {
 		return nil, err
 	}
 	return buf.Bytes(), nil
-}
-
-var errUsage = errors.New("")
-
-func (s *Server) usageString() []byte {
-	return []byte("usage: curl -F red=@before.txt -F green=@after.txt " + s.PublicURL + "\n")
 }
 
 func tarWriteMultipart(tw *tar.Writer, name string, size int64, r io.Reader) error {

@@ -2,8 +2,10 @@ package http
 
 import (
 	"errors"
+	"io"
 	"log"
 	"net/http"
+	"os"
 	"regexp"
 	"time"
 
@@ -18,12 +20,19 @@ type Server struct {
 	PublicURL string
 	Storage   storage.Storage
 	DB        *db.DB
+	Output    io.Writer
 }
 
 func (s *Server) Router() chi.Router {
+	if s.Output == nil {
+		s.Output = os.Stdout
+	}
 	rt := chi.NewRouter()
 	rt.Use(
-		middleware.Logger,
+		middleware.RealIP,
+		middleware.RequestLogger(&middleware.DefaultLogFormatter{
+			Logger: log.New(s.Output, "", log.LstdFlags),
+		}),
 		middleware.Recoverer,
 		middleware.Timeout(time.Second*60),
 	)
@@ -42,7 +51,14 @@ const (
 	ctPlain  = "text/plain; charset=utf-8"
 )
 
-var reBrowser = regexp.MustCompile("(?i)(?:chrome|firefox|safari|gecko)/")
+var (
+	reBrowser = regexp.MustCompile("(?i)(?:chrome|firefox|safari|gecko)/")
+	errUsage  = errors.New("")
+)
+
+func (s *Server) usageString() []byte {
+	return []byte("usage: curl -F red=@before.txt -F green=@after.txt " + s.PublicURL + "\n")
+}
 
 func isBrowser(r *http.Request) bool {
 	ua := r.UserAgent()
