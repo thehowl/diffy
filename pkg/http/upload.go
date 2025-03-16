@@ -25,13 +25,11 @@ const (
 	maxBodySize        = 1 << 20 // 1M
 	maxMultipartMemory = maxBodySize
 
-	maxBytesWeek = 1 << 20 * 2 // 2M (compressed)
-	maxCallsWeek = 100         // max upload calls per week.
+	maxBytesWeek = (1 << 20) * 2 // 2M (compressed)
+	maxCallsWeek = 100           // max upload calls per week.
 )
 
 func (s *Server) upload(w http.ResponseWriter, r *http.Request) error {
-	// TODO: rate limiting
-
 	// Read multipart form.
 	r.Body = http.MaxBytesReader(w, r.Body, maxBodySize)
 	err := r.ParseMultipartForm(maxMultipartMemory)
@@ -77,7 +75,7 @@ func (s *Server) upload(w http.ResponseWriter, r *http.Request) error {
 	}
 
 	now := time.Now().UTC()
-	weekNum := now.YearDay() - 1/7
+	weekNum := (now.YearDay() - 1) / 7
 	err = s.DB.AddAmountsAndCompare(
 		r.RemoteAddr,
 		db.UsageStat{
@@ -94,10 +92,10 @@ func (s *Server) upload(w http.ResponseWriter, r *http.Request) error {
 		if errors.Is(err, db.ErrLimitsExceeded) {
 			w.Header().Set(ctHeader, ctPlain)
 			w.WriteHeader(http.StatusTooManyRequests)
-			resetTime := time.Date(now.Year(), 0, weekNum*7+1, 0, 0, 0, 0, time.UTC)
+			resetTime := time.Date(now.Year(), time.January, ((weekNum+1)*7)+1, 0, 0, 0, 0, time.UTC)
 			w.Write([]byte(fmt.Sprintf(
 				"limit exceeded; will reset on %s (in %s)\n",
-				resetTime.Format(time.DateTime),
+				resetTime.Format(time.RFC3339),
 				resetTime.Sub(now),
 			)))
 			return nil

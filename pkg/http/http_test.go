@@ -11,9 +11,11 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -75,10 +77,12 @@ func TestIndex(t *testing.T) {
 
 func TestUpload(t *testing.T) {
 	r := newServer(t).Router()
-	rnd := newRand(t)
 
-	t.Run("upload_ok", func(t *testing.T) {
+	t.Run("Ok", func(t *testing.T) {
+		// Upload a file and check that the response is successful, and
+		// redirects to the uploaded file.
 		t.Parallel()
+
 		rd, header := multipartFiles(
 			"red@hello.go", "a\nb\nc\nd\n",
 			"green@hello.go", "a\nd\ne\n",
@@ -95,8 +99,37 @@ func TestUpload(t *testing.T) {
 		assert.Equal(t, http.StatusOK, wri.Code, wri.Body.String())
 		assert.Contains(t, wri.Body.String(), " a\n-b\n-c\n d\n")
 	})
-	t.Run("upload_only_fields_ok", func(t *testing.T) {
+	t.Run("Deduplicate", func(t *testing.T) {
+		// Check that, if uploading the same files, we get the same hash.
 		t.Parallel()
+
+		rnd := newRand(t)
+		bf := make([]byte, 128)
+		randBytes(rnd, bf)
+		rd, header := multipartFiles(
+			"red@hello.txt", string(bf)+"\n",
+			"green@hello.txt", string(bf)+"\nhello\n",
+		)
+		wri, req := httptest.NewRecorder(), httptest.NewRequest("POST", "/", bytes.NewReader(rd.Bytes()))
+		req.Header.Set("Content-Type", header)
+		r.ServeHTTP(wri, req)
+		assert.Equal(t, http.StatusFound, wri.Code, wri.Body.String())
+		loc1 := wri.Header().Get("Location")
+		require.NotEmpty(t, loc1)
+
+		wri, req = httptest.NewRecorder(), httptest.NewRequest("POST", "/", bytes.NewReader(rd.Bytes()))
+		req.Header.Set("Content-Type", header)
+		r.ServeHTTP(wri, req)
+		assert.Equal(t, http.StatusFound, wri.Code, wri.Body.String())
+		loc2 := wri.Header().Get("Location")
+		assert.NotEmpty(t, loc2)
+		assert.Equal(t, loc1, loc2)
+	})
+	t.Run("FormFields", func(t *testing.T) {
+		// Check that we can perform the upload using only multipart fields
+		// rather than files; this is useful for the homepage form.
+		t.Parallel()
+
 		rd, header := multipartFiles(
 			"red_name", "redder",
 			"red", "a\nb\nc\nd\n",
@@ -108,8 +141,11 @@ func TestUpload(t *testing.T) {
 		r.ServeHTTP(wri, req)
 		assert.Equal(t, http.StatusFound, wri.Code, wri.Body.String())
 	})
-	t.Run("no_content_type", func(t *testing.T) {
+	t.Run("NoContentType", func(t *testing.T) {
+		// Check for failure when the multipart form is somehow malformed (ie.
+		// missing header.)
 		t.Parallel()
+
 		rd, _ := multipartFiles(
 			"red@hello.go", "a\nb\nc\nd\n",
 			"green@hello.go", "a\nd\ne\n",
@@ -119,9 +155,27 @@ func TestUpload(t *testing.T) {
 		assert.Equal(t, http.StatusBadRequest, wri.Code)
 		assert.Contains(t, wri.Body.String(), "multipart/form-data")
 	})
-	t.Run("upload_spam_files", func(t *testing.T) {
+	t.Run("BadFiles", func(t *testing.T) {
+		// Check for failure when the multipart form is somehow malformed (ie.
+		// missing header.)
 		t.Parallel()
 
+		rd, header := multipartFiles(
+			"purple@hello.go", "a\nb\nc\nd\n",
+			"green@hello.go", "a\nd\ne\n",
+			"orange@hello.go", "a\nd\nh\n",
+		)
+		wri, req := httptest.NewRecorder(), httptest.NewRequest("POST", "/", rd)
+		req.Header.Set("Content-Type", header)
+		r.ServeHTTP(wri, req)
+		assert.Equal(t, http.StatusBadRequest, wri.Code)
+		assert.Contains(t, wri.Body.String(), "usage: curl -F")
+	})
+	t.Run("SpamFiles", func(t *testing.T) {
+		// Test rate limiter, uploading >100 junk files.
+		t.Parallel()
+
+		rnd := newRand(t)
 		wg := sync.WaitGroup{}
 		for i := 0; i < maxCallsWeek; i++ {
 			// submit maxCallsWeek junk files.
@@ -156,9 +210,14 @@ func TestUpload(t *testing.T) {
 		req.RemoteAddr = "171.81.83.116"
 		req.Header.Set("Content-Type", header)
 		r.ServeHTTP(wri, req)
-		loc := wri.Header().Get("Location")
 		assert.Equal(t, http.StatusTooManyRequests, wri.Code, wri.Body.String())
+		loc := wri.Header().Get("Location")
 		require.Empty(t, loc)
+		mc := regexp.MustCompile(`on ([^ ]+)`).FindStringSubmatch(wri.Body.String())
+		pt, err := time.Parse(time.RFC3339, mc[1])
+		require.NoError(t, err)
+		rem := (pt.YearDay() - 1) % 7
+		assert.Equal(t, 0, rem, "yearday remainder should be 0")
 	})
 }
 
@@ -172,7 +231,7 @@ func randBytes(r *rand.Rand, buf []byte) {
 	}
 }
 
-func multipartFiles(filesContents ...string) (io.Reader, string) {
+func multipartFiles(filesContents ...string) (*bytes.Buffer, string) {
 	if len(filesContents)%2 != 0 {
 		panic("multipartFiles expect even number of arguments")
 	}
