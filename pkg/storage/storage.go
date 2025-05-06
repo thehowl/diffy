@@ -54,9 +54,15 @@ func NewMinioStorage(cl *minio.Client, bucketName string) Storage {
 	}
 }
 
+const s3NotFound = "NoSuchKey"
+
 func (m *minioStorage) Get(ctx context.Context, id string) ([]byte, error) {
 	obj, err := m.cl.GetObject(ctx, m.bucketName, id, minio.GetObjectOptions{})
 	if err != nil {
+		var eResp minio.ErrorResponse
+		if errors.As(err, &eResp) && eResp.Code == s3NotFound {
+			return nil, ErrNotFound
+		}
 		return nil, err
 	}
 	defer obj.Close()
