@@ -13,6 +13,7 @@ import (
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/thehowl/diffy/pkg/db"
 	"github.com/thehowl/diffy/pkg/storage"
+	"github.com/thehowl/diffy/static"
 	"github.com/thehowl/diffy/templates"
 )
 
@@ -38,8 +39,8 @@ func (s *Server) Router() chi.Router {
 	)
 	rt.Get("/", s.index)
 	rt.Post("/", s.e(s.upload))
-	fs := http.FileServer(http.Dir("."))
-	rt.Get("/static/*", fs.ServeHTTP)
+	fs := http.FileServer(http.FS(static.FS))
+	rt.Get("/static/*", http.StripPrefix("/static/", fs).ServeHTTP)
 	rt.Get("/{id}", s.e(s.serveDiff))
 	rt.Get("/{id}/red", s.serveFile(0))
 	rt.Get("/{id}/green", s.serveFile(1))
